@@ -185,3 +185,36 @@ global.loop = async function loop(fn, ms = 33) {
     await sleep(ms);
   }
 };
+
+global.runFocusedCell = async function () {
+  await page.keyboard.down("Control");
+  await sleep(100);
+  await page.keyboard.press("Enter");
+  await sleep(100);
+  await page.keyboard.up("Control");
+};
+
+global.deleteFocusedCell = async function () {
+  await page.keyboard.down("Control");
+  await sleep(100);
+  await page.keyboard.press("m");
+  await sleep(100);
+  await page.keyboard.up("Control");
+  await sleep(100);
+  await page.keyboard.press("d");
+};
+
+global.waitFocusedCellOutput = async function () {
+  // cell code icon-scrolling focused code-has-output
+  await page.waitForSelector("shadow/.cell.code.focused.code-has-output");
+  return await page.$eval("shadow/.cell.code.focused.code-has-output pre", (elm) => elm.innerText.trim());
+};
+
+global.getMachineId = async function () {
+  await page.click("#toolbar-add-code");
+  await page.keyboard.type("!cat /sys/class/dmi/id/board_serial");
+  await runFocusedCell();
+  let output = await waitFocusedCellOutput();
+  await deleteFocusedCell();
+  return output;
+};
