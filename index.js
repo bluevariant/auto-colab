@@ -331,7 +331,7 @@ global.waitRunningCell = async function (run, output) {
 
 global.IamStillAlive = async function () {
   await page.click("#toolbar-add-code");
-  await page.keyboard.type(`!cat echo "i'm still alive"`);
+  await page.keyboard.type(`!echo "i'm still alive"`);
   await runFocusedCell();
   let output = await waitFocusedCellOutput();
   await deleteFocusedCell();
