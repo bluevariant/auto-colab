@@ -1,0 +1,26 @@
+{
+  "name": "auto-colab",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "fs-extra": "^9.0.1",
+    "lodash": "^4.17.20",
+    "puppeteer": "^5.5.0",
+    "puppeteer-extra": "^3.1.15",
+    "puppeteer-extra-plugin-stealth": "^2.6.5",
+    "query-selector-shadow-dom": "^0.8.0",
+    "slug": "^4.0.2"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^9.0.5",
+    "@types/puppeteer": "^5.4.2",
+    "prettier": "^2.2.1"
+  }
+}
