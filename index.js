@@ -9,6 +9,7 @@ const { QueryHandler } = require("query-selector-shadow-dom/plugins/puppeteer");
 const Queue = require("better-queue");
 const myWorker = require("./worker");
 const cheerio = require("cheerio");
+const { v4 } = require("uuid");
 
 const DATA_DIR = path.join(__dirname, "data");
 const BROWSER_OPTIONS = {
@@ -26,13 +27,14 @@ const URL = "https://colab.research.google.com/drive/10oSUbDkLeMbH04bi2pJwMuIaxW
 
 const worker = new Queue(
   function (params, cb) {
-    console.log("state:", params.state);
+    console.log("state:", params.state, params.uuid);
 
+    let session = params.uuid;
     let controller = {
       canceled: false,
-      async run(fn, thisArg = null, ...params) {
-        if (this.canceled) return;
-        return await fn.call(thisArg, ...params);
+      run(fn, thisArg = null, ...params) {
+        if (session !== global.uuid) return;
+        return fn.call(thisArg, ...params);
       },
     };
     try {
@@ -74,13 +76,17 @@ const worker = new Queue(
       } else if (state === "reconnect") {
         state = "connect";
       }
-      if (!["reconnect", "connect", "allocating", "connecting", "initializing", "connected", "busy"].includes(state)) {
-        state = undefined;
+      // if (!["reconnect", "connect", "allocating", "connecting", "initializing", "connected", "busy"].includes(state)) {
+      //   state = undefined;
+      // }
+      if (!["connected", "connect"].includes(state)) {
+        state = "switch";
       }
     } catch (e) {}
     if (state) {
       if (lastState !== state) {
-        worker.push({ id: 1, state });
+        if (state === "connect") global.uuid = v4();
+        if (state !== "switch") worker.push({ id: 1, state, uuid: global.uuid + "" });
         lastState = state;
       }
     }
@@ -88,7 +94,6 @@ const worker = new Queue(
 })();
 
 global.mountDrive = async function (url, run) {
-  console.log("login...");
   let browser = await puppeteerExtra.launch({ headless: true });
   let loginPage;
   try {
@@ -102,6 +107,8 @@ global.mountDrive = async function (url, run) {
       true,
       "#submit_approve_access"
     );
+    await run(sleep, 1000);
+    await run(loginPage.focus, loginPage, "#submit_approve_access");
     await run(loginPage.click, loginPage, "#submit_approve_access");
     await run(loginPage.waitForSelector, loginPage, "textarea");
     let token = await run(loginPage.$eval, loginPage, "textarea", (elm) => elm.value);
@@ -115,47 +122,55 @@ global.mountDrive = async function (url, run) {
   await browser.close();
 };
 
-async function login(browser, url, account, password, userDataDir, browserOptions, loginAction, elementId = "#share") {
+async function login(
+  browser,
+  url,
+  account,
+  password,
+  userDataDir,
+  browserOptions,
+  loginAction,
+  elementId = "#share",
+  ignoreCookie
+) {
   const page = (await browser.pages())[0];
   page.setDefaultNavigationTimeout(120000);
-  await loadCookies(page, userDataDir);
+  if (!ignoreCookie) await loadCookies(page, userDataDir);
   await page.setUserAgent(USER_AGENT);
   await page.goto(url);
   let needLogin = false;
   await loop(async () => {
-    let check = await page.evaluate((_) => {
+    let check = await page.evaluate((account) => {
       let loginElm = document.querySelector("#identifierId");
       let colabElm = document.querySelector("#share");
+      let chooseQ = 'div[data-identifier="' + account + '"]';
+      let chooseElm = document.querySelector(chooseQ);
       if (loginElm) return "login";
       if (colabElm) return "colab";
+      if (chooseElm) return chooseQ;
       return null;
-    });
+    }, account);
     if (check) {
-      needLogin = check === "login";
+      needLogin = check;
       return true;
     }
   });
-  if (needLogin) {
+  if (needLogin !== "colab") {
     if (loginAction) {
-      await page.waitForSelector("#identifierId");
-      await page.type("#identifierId", account);
-      await page.click("#identifierNext");
-      await page.waitForSelector('input[type="password"]');
-      await waitForInputFocus(page);
-      await page.type('input[type="password"]', password);
-      await page.keyboard.press("Enter");
+      if (needLogin === "login") {
+        await page.waitForSelector("#identifierId");
+        await page.type("#identifierId", account);
+        await page.click("#identifierNext");
+        await page.waitForSelector('input[type="password"]');
+        await waitForInputFocus(page);
+        await page.type('input[type="password"]', password);
+        await page.keyboard.press("Enter");
+      } else {
+        await page.click(needLogin);
+      }
     } else {
       console.log("login...");
-      let browser = await puppeteerExtra.launch({
-        // ...browserOptions,
-        // defaultViewport: {
-        //   width: 480,
-        //   height: 1200,
-        //   isMobile: true,
-        // },
-        // args: ["--disable-infobars", "--start-minimized", "--window-size=300,300"],
-        headless: true,
-      });
+      let browser = await puppeteerExtra.launch({ headless: true });
       let loginPage = await login(browser, url, account, password, userDataDir, browserOptions, true);
       await loginPage.close();
       await browser.close();
