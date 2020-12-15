@@ -24,7 +24,11 @@ module.exports = async function (state, run) {
 async function runDriveCell(run) {
   let cells = await run(getCells);
   for (let cell of cells || []) {
-    if (cell.lines && cell.lines.length > 0 && cell.lines[0].trim() === "#0") {
+    if (
+      cell.lines &&
+      cell.lines.length > 0 &&
+      cell.lines.filter((v) => v.includes("drive.mount('/content/drive')")).length > 0
+    ) {
       await run(cell.focus, cell);
       await run(runFocusedCell);
     }
