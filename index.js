@@ -16,6 +16,7 @@ const BROWSER_OPTIONS = {
 };
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15";
+const URL = "https://colab.research.google.com/drive/10oSUbDkLeMbH04bi2pJwMuIaxWJ8jE2m";
 
 // from google.colab import drive
 // drive.mount('/content/drive')
@@ -27,16 +28,15 @@ const USER_AGENT =
 
   await puppeteer.registerCustomQueryHandler("shadow", QueryHandler);
   let browser = await puppeteer.launch(BROWSER_OPTIONS);
-  let page = await login(browser, accounts[0].login, accounts[0].password, userDataDir, BROWSER_OPTIONS);
+  let page = await login(browser, URL, accounts[0].login, accounts[0].password, userDataDir, BROWSER_OPTIONS);
   await page.click("shadow/#connect");
   console.log("done");
 })();
 
-async function login(browser, account, password, userDataDir, browserOptions, loginAction) {
+async function login(browser, url, account, password, userDataDir, browserOptions, loginAction) {
   const page = (await browser.pages())[0];
   await loadCookies(page, userDataDir);
   await page.setUserAgent(USER_AGENT);
-  let url = "https://colab.research.google.com/drive/10oSUbDkLeMbH04bi2pJwMuIaxWJ8jE2m";
   await page.goto(url);
   let needLogin = false;
   await loop(async () => {
@@ -67,7 +67,7 @@ async function login(browser, account, password, userDataDir, browserOptions, lo
         ...BROWSER_OPTIONS,
         headless: false,
       });
-      let loginPage = await login(browser, account, password, userDataDir, browserOptions, true);
+      let loginPage = await login(browser, url, account, password, userDataDir, browserOptions, true);
       await loginPage.close();
       await browser.close();
       console.log("login done");
