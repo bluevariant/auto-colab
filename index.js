@@ -7,6 +7,7 @@ const path = require("path");
 const slug = require("slug");
 const { QueryHandler } = require("query-selector-shadow-dom/plugins/puppeteer");
 const Queue = require("better-queue");
+const myWorker = require("./worker");
 
 const DATA_DIR = path.join(__dirname, "data");
 const BROWSER_OPTIONS = {
@@ -26,16 +27,14 @@ const worker = new Queue(
   function (params, cb) {
     console.log("state:", params.state);
 
-    let canceled = false;
-    loop(async () => {
-      if (canceled) {
-        console.log("canceled:", params.state);
-        return true;
-      }
-    }).then(() => {
+    let controller = { canceled: false };
+    try {
+      myWorker(params.state, controller).then(() => cb(null));
+    } catch (e) {
+      console.error(e);
       cb(null);
-    });
-    return { cancel: () => (canceled = true) };
+    }
+    return { cancel: () => (controller.canceled = true) };
   },
   { id: "id", cancelIfRunning: true }
 );
@@ -49,6 +48,8 @@ const worker = new Queue(
   let browser = await puppeteer.launch(BROWSER_OPTIONS);
   let page = await login(browser, URL, accounts[0].login, accounts[0].password, userDataDir, BROWSER_OPTIONS);
   await page.waitForSelector("shadow/.cell.code");
+
+  global.page = page;
 
   let lastState = undefined;
   await loop(async () => {
