@@ -87,11 +87,12 @@ const worker = new Queue(
   });
 })();
 
-global.mountDrive = async function (url, controller) {
+global.mountDrive = async function (url, run) {
   console.log("login...");
   let browser = await puppeteerExtra.launch({ headless: true });
+  let loginPage;
   try {
-    let loginPage = await login(
+    loginPage = await login(
       browser,
       url,
       accounts[0].login,
@@ -101,16 +102,16 @@ global.mountDrive = async function (url, controller) {
       true,
       "#submit_approve_access"
     );
-    await loginPage.click("#submit_approve_access");
-    await loginPage.waitForSelector("textarea");
-    let token = await loginPage.$eval("textarea", (elm) => elm.value);
+    await run(loginPage.click, loginPage, "#submit_approve_access");
+    await run(loginPage.waitForSelector, loginPage, "textarea");
+    let token = await run(loginPage.$eval, loginPage, "textarea", (elm) => elm.value);
     console.log("token: " + token);
-    await page.type(".raw_input", token);
-    await page.keyboard.press("Enter");
-    await loginPage.close();
+    await run(page.type, page, ".raw_input", token);
+    await run(page.keyboard.press, page.keyboard, "Enter");
   } catch (e) {
     console.error(e);
   }
+  if (loginPage) await loginPage.close();
   await browser.close();
 };
 
@@ -304,10 +305,10 @@ global.waitRunningCell = async function (run, output) {
     if (!cells) return false;
     for (let cell of cells) {
       if (cell.running) {
-        return true;
-        // if (output && cell.output) {
-        //   return true;
-        // } else if (!output) return true;
+        // return true;
+        if (output && cell.output) {
+          return true;
+        } else if (!output) return true;
       }
     }
   });
