@@ -5,12 +5,23 @@ module.exports = async function (state, controller) {
   //     return true;
   //   }
   // });
-  if (state === "connected") {
-    console.log(await getCells());
+  if (state === "connected" || state === "busy") {
     // console.log(await getMachineId());
-  }
+    await loop(async () => {
+      let cells = await getCells();
+      for (let i = 0; i < cells.length; i++) {
+        let cell = cells[i];
+        if (cell.running && cell.driveUrl) {
+          await cell.focus();
+          await submitDriveToken(cell.driveUrl);
+          await sleep(1000000000);
+        }
+      }
 
-  if (state === "busy") {
-    console.log(await getCells());
+      if (controller.canceled) {
+        console.log("canceled:", state);
+        return true;
+      }
+    });
   }
 };

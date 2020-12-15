@@ -41,7 +41,9 @@ const worker = new Queue(
 );
 
 (async () => {
+  global.browserOptions = BROWSER_OPTIONS;
   let accounts = JSON.parse(fs.readFileSync(path.join(DATA_DIR, "accounts.json"), "UTF-8") || "[]");
+  global.accounts = accounts;
   let userDataDir = path.join(DATA_DIR, "users", slug(accounts[0].login));
   fs.ensureDirSync(userDataDir);
   global.userDataDir = userDataDir;
@@ -75,8 +77,39 @@ const worker = new Queue(
   });
 })();
 
-async function login(browser, url, account, password, userDataDir, browserOptions, loginAction) {
+global.submitDriveToken = async function (url) {
+  console.log("login...");
+  let browser = await puppeteerExtra.launch({
+    ...browserOptions,
+    defaultViewport: {
+      width: 480,
+      height: 1200,
+      isMobile: true,
+    },
+    args: ["--disable-infobars", "--start-minimized", "--window-size=300,300"],
+  });
+  let loginPage = await login(
+    browser,
+    url,
+    accounts[0].login,
+    accounts[0].password,
+    userDataDir,
+    browserOptions,
+    true,
+    "#submit_approve_access"
+  );
+  await loginPage.click("#submit_approve_access");
+  await loginPage.waitForSelector("textarea");
+  let token = await loginPage.$eval("textarea", (elm) => elm.value);
+  await loginPage.close();
+  await browser.close();
+  await page.type(".raw_input", token);
+  await page.keyboard.press("Enter");
+};
+
+async function login(browser, url, account, password, userDataDir, browserOptions, loginAction, elementId = "#share") {
   const page = (await browser.pages())[0];
+  page.setDefaultNavigationTimeout(120000);
   await loadCookies(page, userDataDir);
   await page.setUserAgent(USER_AGENT);
   await page.goto(url);
@@ -106,8 +139,13 @@ async function login(browser, url, account, password, userDataDir, browserOption
     } else {
       console.log("login...");
       let browser = await puppeteerExtra.launch({
-        ...BROWSER_OPTIONS,
-        headless: false,
+        ...browserOptions,
+        defaultViewport: {
+          width: 480,
+          height: 1200,
+          isMobile: true,
+        },
+        args: ["--disable-infobars", "--start-minimized", "--window-size=300,300"],
       });
       let loginPage = await login(browser, url, account, password, userDataDir, browserOptions, true);
       await loginPage.close();
@@ -117,7 +155,7 @@ async function login(browser, url, account, password, userDataDir, browserOption
       await page.goto(url);
     }
   }
-  await page.waitForSelector("#share");
+  await page.waitForSelector(elementId);
   await saveCookies(page, userDataDir);
 
   return page;
