@@ -1,8 +1,8 @@
 module.exports = async function (state, run) {
   if (state === "connect") {
     // await run(page.click, page, "shadow/#connect");
-    // await run(runDriveCell, null, run);
-    await IamStillAlive();
+    await run(runDriveCell, null, run);
+    // await IamStillAlive();
   }
 
   if (state === "connected") {
