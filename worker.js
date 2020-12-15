@@ -1,10 +1,12 @@
 module.exports = async function (state, run) {
   if (state === "connect") {
-    await run(page.click, page, "shadow/#connect");
+    // await run(page.click, page, "shadow/#connect");
+    // await run(runDriveCell, null, run);
+    await IamStillAlive();
   }
 
   if (state === "connected") {
-    await run(runFistCell, null, run);
+    await run(runDriveCell, null, run);
     await run(waitRunningCell, null, run, true);
     let cells = await run(getCells);
     for (let cell of cells || []) {
@@ -19,7 +21,7 @@ module.exports = async function (state, run) {
   }
 };
 
-async function runFistCell(run) {
+async function runDriveCell(run) {
   let cells = await run(getCells);
   for (let cell of cells || []) {
     if (cell.lines && cell.lines.length > 0 && cell.lines[0].trim() === "#0") {
