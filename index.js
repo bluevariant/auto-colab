@@ -6,6 +6,7 @@ const fs = require("fs-extra");
 const path = require("path");
 const slug = require("slug");
 const { QueryHandler } = require("query-selector-shadow-dom/plugins/puppeteer");
+const Queue = require("better-queue");
 
 const DATA_DIR = path.join(__dirname, "data");
 const BROWSER_OPTIONS = {
@@ -21,6 +22,24 @@ const URL = "https://colab.research.google.com/drive/10oSUbDkLeMbH04bi2pJwMuIaxW
 // from google.colab import drive
 // drive.mount('/content/drive')
 
+const worker = new Queue(
+  function (params, cb) {
+    console.log("state:", params.state);
+
+    let canceled = false;
+    loop(async () => {
+      if (canceled) {
+        console.log("canceled:", params.state);
+        return true;
+      }
+    }).then(() => {
+      cb(null);
+    });
+    return { cancel: () => (canceled = true) };
+  },
+  { id: "id", cancelIfRunning: true }
+);
+
 (async () => {
   let accounts = JSON.parse(fs.readFileSync(path.join(DATA_DIR, "accounts.json"), "UTF-8") || "[]");
   let userDataDir = path.join(DATA_DIR, "users", slug(accounts[0].login));
@@ -30,26 +49,51 @@ const URL = "https://colab.research.google.com/drive/10oSUbDkLeMbH04bi2pJwMuIaxW
   let browser = await puppeteer.launch(BROWSER_OPTIONS);
   let page = await login(browser, URL, accounts[0].login, accounts[0].password, userDataDir, BROWSER_OPTIONS);
   await page.waitForSelector("shadow/.cell.code");
-  let cells = await page.$$eval("shadow/.cell.code", (elements) =>
-    elements.map((elm) => {
-      let rect = elm.getBoundingClientRect();
-      return {
-        x: rect.x,
-        y: rect.y,
-        width: rect.width,
-        height: rect.height,
-        centerX: (rect.x + rect.right) / 2,
-        centerY: (rect.y + rect.bottom) / 2,
-        text: elm.innerText,
-        html: elm.html,
-        id: elm.getAttribute("id"),
-      };
-    })
-  );
-  // await page.focus(cells[cells.length - 1].selector);
-  // await page.mouse.click(cells[cells.length - 1].centerX, cells[cells.length - 1].centerY);
-  // await page.click("shadow/#" + cells[cells.length - 1].id);
-  console.log(cells);
+
+  let lastState = undefined;
+  await loop(async () => {
+    let state;
+    try {
+      state = await page.$eval("shadow/#connect", (elm) => elm.innerText);
+      state = slug(state);
+      if (state === "ram-disk") {
+        state = "connected";
+      }
+      if (!["connect", "allocating", "connecting", "initializing", "connected", "busy"].includes(state)) {
+        state = undefined;
+      }
+    } catch (e) {}
+    if (state) {
+      if (lastState !== state) {
+        worker.push({ id: 1, state });
+        lastState = state;
+      }
+    }
+  });
+
+  // let cells = await page.$$eval("shadow/.cell.code", (elements) =>
+  //   elements.map((elm) => {
+  //     let rect = elm.getBoundingClientRect();
+  //     return {
+  //       x: rect.x,
+  //       y: rect.y,
+  //       width: rect.width,
+  //       height: rect.height,
+  //       centerX: (rect.x + rect.right) / 2,
+  //       centerY: (rect.y + rect.bottom) / 2,
+  //       text: elm.innerText,
+  //       html: elm.html,
+  //       id: elm.getAttribute("id"),
+  //     };
+  //   })
+  // );
+  // await page.click("shadow/#" + cells[0].id);
+  // await page.keyboard.down("Control");
+  // await sleep(100);
+  // await page.keyboard.press("Enter");
+  // await sleep(100);
+  // await page.keyboard.up("Control");
+  // console.log(cells);
 })();
 
 async function login(browser, url, account, password, userDataDir, browserOptions, loginAction) {
@@ -133,10 +177,10 @@ async function loadCookies(page, userDataDir) {
   }
 }
 
-async function loop(fn) {
+async function loop(fn, ms = 33) {
   while (true) {
     let val = await fn();
     if (val !== undefined) return val;
-    await sleep(33);
+    await sleep(ms);
   }
 }
