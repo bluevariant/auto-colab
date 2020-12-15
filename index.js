@@ -8,6 +8,7 @@ const slug = require("slug");
 const { QueryHandler } = require("query-selector-shadow-dom/plugins/puppeteer");
 const Queue = require("better-queue");
 const myWorker = require("./worker");
+const cheerio = require("cheerio");
 
 const DATA_DIR = path.join(__dirname, "data");
 const BROWSER_OPTIONS = {
@@ -43,6 +44,7 @@ const worker = new Queue(
   let accounts = JSON.parse(fs.readFileSync(path.join(DATA_DIR, "accounts.json"), "UTF-8") || "[]");
   let userDataDir = path.join(DATA_DIR, "users", slug(accounts[0].login));
   fs.ensureDirSync(userDataDir);
+  global.userDataDir = userDataDir;
 
   await puppeteer.registerCustomQueryHandler("shadow", QueryHandler);
   let browser = await puppeteer.launch(BROWSER_OPTIONS);
@@ -71,30 +73,6 @@ const worker = new Queue(
       }
     }
   });
-
-  // let cells = await page.$$eval("shadow/.cell.code", (elements) =>
-  //   elements.map((elm) => {
-  //     let rect = elm.getBoundingClientRect();
-  //     return {
-  //       x: rect.x,
-  //       y: rect.y,
-  //       width: rect.width,
-  //       height: rect.height,
-  //       centerX: (rect.x + rect.right) / 2,
-  //       centerY: (rect.y + rect.bottom) / 2,
-  //       text: elm.innerText,
-  //       html: elm.html,
-  //       id: elm.getAttribute("id"),
-  //     };
-  //   })
-  // );
-  // await page.click("shadow/#" + cells[0].id);
-  // await page.keyboard.down("Control");
-  // await sleep(100);
-  // await page.keyboard.press("Enter");
-  // await sleep(100);
-  // await page.keyboard.up("Control");
-  // console.log(cells);
 })();
 
 async function login(browser, url, account, password, userDataDir, browserOptions, loginAction) {
@@ -168,7 +146,7 @@ async function saveCookies(page, userDataDir) {
   await fs.writeFile(saveTo, JSON.stringify(cookiesObject));
 }
 
-async function loadCookies(page, userDataDir) {
+global.loadCookies = async function loadCookies(page, userDataDir) {
   let saveTo = path.join(userDataDir, "cookies.json");
   if (await fs.pathExists(saveTo)) {
     let cookiesObject = JSON.parse((await fs.readFile(saveTo, "UTF-8")) || "[]");
@@ -176,7 +154,7 @@ async function loadCookies(page, userDataDir) {
       await page.setCookie(cookie);
     }
   }
-}
+};
 
 global.loop = async function loop(fn, ms = 33) {
   while (true) {
@@ -217,4 +195,46 @@ global.getMachineId = async function () {
   let output = await waitFocusedCellOutput();
   await deleteFocusedCell();
   return output;
+};
+
+global.getCells = async function () {
+  return (
+    await page.$$eval("shadow/.cell.code", (elements) =>
+      elements.map((elm) => {
+        let rect = elm.getBoundingClientRect();
+        return {
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: rect.height,
+          centerX: (rect.x + rect.right) / 2,
+          centerY: (rect.y + rect.bottom) / 2,
+          text: elm.innerText,
+          html: elm.innerHTML,
+          id: elm.getAttribute("id"),
+          classes: elm.getAttribute("class"),
+        };
+      })
+    )
+  ).map((cell) => {
+    if (cell.html) {
+      let $ = cheerio.load("<div>" + cell.html + "</div>");
+      let output = $("pre").text();
+      if (output && output.length) {
+        cell.output = output.trim();
+      }
+      if (
+        cell.html.includes(
+          'Go to this URL in a browser: <a rel="nofollow" target="_blank" href="https://accounts.google.com'
+        )
+      ) {
+        cell.driveUrl = $('a[rel="nofollow"]').attr("href");
+      }
+    }
+    delete cell.html;
+    cell.running = cell.classes.includes("running");
+    cell.pending = cell.classes.includes("pending");
+    cell.focus = () => page.focus("shadow/#" + cell.id);
+    return cell;
+  });
 };
