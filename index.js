@@ -29,8 +29,27 @@ const URL = "https://colab.research.google.com/drive/10oSUbDkLeMbH04bi2pJwMuIaxW
   await puppeteer.registerCustomQueryHandler("shadow", QueryHandler);
   let browser = await puppeteer.launch(BROWSER_OPTIONS);
   let page = await login(browser, URL, accounts[0].login, accounts[0].password, userDataDir, BROWSER_OPTIONS);
-  await page.click("shadow/#connect");
-  console.log("done");
+  await page.waitForSelector("shadow/.cell.code");
+  let cells = await page.$$eval("shadow/.cell.code", (elements) =>
+    elements.map((elm) => {
+      let rect = elm.getBoundingClientRect();
+      return {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+        centerX: (rect.x + rect.right) / 2,
+        centerY: (rect.y + rect.bottom) / 2,
+        text: elm.innerText,
+        html: elm.html,
+        id: elm.getAttribute("id"),
+      };
+    })
+  );
+  // await page.focus(cells[cells.length - 1].selector);
+  // await page.mouse.click(cells[cells.length - 1].centerX, cells[cells.length - 1].centerY);
+  // await page.click("shadow/#" + cells[cells.length - 1].id);
+  console.log(cells);
 })();
 
 async function login(browser, url, account, password, userDataDir, browserOptions, loginAction) {
