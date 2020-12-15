@@ -6,19 +6,3 @@ module.exports = async function (state, controller) {
     }
   });
 };
-
-/**
- *
- */
-
-async function loop(fn, ms = 33) {
-  while (true) {
-    let val = await fn();
-    if (val !== undefined) return val;
-    await sleep(ms);
-  }
-}
-
-function sleep(ms) {
-  return new Promise((rel) => setTimeout(rel, ms));
-}

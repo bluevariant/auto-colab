@@ -145,9 +145,9 @@ async function login(browser, url, account, password, userDataDir, browserOption
   return page;
 }
 
-function sleep(ms) {
+global.sleep = function sleep(ms) {
   return new Promise((rel) => setTimeout(rel, ms));
-}
+};
 
 async function waitForInputFocus(page) {
   await loop(async () => {
@@ -178,10 +178,10 @@ async function loadCookies(page, userDataDir) {
   }
 }
 
-async function loop(fn, ms = 33) {
+global.loop = async function loop(fn, ms = 33) {
   while (true) {
     let val = await fn();
     if (val !== undefined) return val;
     await sleep(ms);
   }
-}
+};
