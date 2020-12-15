@@ -1,27 +1,33 @@
-module.exports = async function (state, controller) {
-  // await loop(async () => {
-  //   if (controller.canceled) {
-  //     console.log("canceled:", state);
-  //     return true;
-  //   }
-  // });
-  if (state === "connected" || state === "busy") {
-    // console.log(await getMachineId());
-    await loop(async () => {
-      let cells = await getCells();
-      for (let i = 0; i < cells.length; i++) {
-        let cell = cells[i];
-        if (cell.running && cell.driveUrl) {
-          await cell.focus();
-          await submitDriveToken(cell.driveUrl);
-          await sleep(1000000000);
-        }
-      }
+module.exports = async function (state, run) {
+  if (state === "connect") {
+    await run(page.click, page, "shadow/#connect");
+  }
 
-      if (controller.canceled) {
-        console.log("canceled:", state);
-        return true;
+  if (state === "connected") {
+    await run(runFistCell, null, run);
+    await run(waitRunningCell, null, run, true);
+    console.log("r");
+    let cells = await run(getCells);
+    for (let cell of cells || []) {
+      if (cell.running) {
+        console.log(cell.output);
       }
-    });
+      if (cell.running && cell.driveUrl) {
+        console.log("mounting...");
+        await run(cell.focus, cell);
+        await run(mountDrive, null, cell.driveUrl);
+        await run(waitForCellFree, null, cell.id);
+      }
+    }
   }
 };
+
+async function runFistCell(run) {
+  let cells = await run(getCells);
+  for (let cell of cells || []) {
+    if (cell.lines && cell.lines.length > 0 && cell.lines[0].trim() === "#0") {
+      await run(cell.focus, cell);
+      await run(runFocusedCell);
+    }
+  }
+}

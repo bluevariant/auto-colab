@@ -28,9 +28,15 @@ const worker = new Queue(
   function (params, cb) {
     console.log("state:", params.state);
 
-    let controller = { canceled: false };
+    let controller = {
+      canceled: false,
+      async run(fn, thisArg = null, ...params) {
+        if (this.canceled) return;
+        return await fn.call(thisArg, ...params);
+      },
+    };
     try {
-      myWorker(params.state, controller).then(() => cb(null));
+      myWorker(params.state, controller.run).then(() => cb(null));
     } catch (e) {
       console.error(e);
       cb(null);
@@ -49,7 +55,7 @@ const worker = new Queue(
   global.userDataDir = userDataDir;
 
   await puppeteer.registerCustomQueryHandler("shadow", QueryHandler);
-  let browser = await puppeteer.launch(BROWSER_OPTIONS);
+  let browser = await puppeteer.launch(browserOptions);
   let page = await login(browser, URL, accounts[0].login, accounts[0].password, userDataDir, BROWSER_OPTIONS);
   await page.waitForSelector("shadow/.cell.code");
 
@@ -63,8 +69,12 @@ const worker = new Queue(
       state = slug(state);
       if (state === "ram-disk") {
         state = "connected";
+      } else if (state === "busy") {
+        state = "connected";
+      } else if (state === "reconnect") {
+        state = "connect";
       }
-      if (!["connect", "allocating", "connecting", "initializing", "connected", "busy"].includes(state)) {
+      if (!["reconnect", "connect", "allocating", "connecting", "initializing", "connected", "busy"].includes(state)) {
         state = undefined;
       }
     } catch (e) {}
@@ -77,34 +87,31 @@ const worker = new Queue(
   });
 })();
 
-global.submitDriveToken = async function (url) {
+global.mountDrive = async function (url, controller) {
   console.log("login...");
-  let browser = await puppeteerExtra.launch({
-    ...browserOptions,
-    defaultViewport: {
-      width: 480,
-      height: 1200,
-      isMobile: true,
-    },
-    args: ["--disable-infobars", "--start-minimized", "--window-size=300,300"],
-  });
-  let loginPage = await login(
-    browser,
-    url,
-    accounts[0].login,
-    accounts[0].password,
-    userDataDir,
-    browserOptions,
-    true,
-    "#submit_approve_access"
-  );
-  await loginPage.click("#submit_approve_access");
-  await loginPage.waitForSelector("textarea");
-  let token = await loginPage.$eval("textarea", (elm) => elm.value);
-  await loginPage.close();
+  let browser = await puppeteerExtra.launch({ headless: true });
+  try {
+    let loginPage = await login(
+      browser,
+      url,
+      accounts[0].login,
+      accounts[0].password,
+      userDataDir,
+      browserOptions,
+      true,
+      "#submit_approve_access"
+    );
+    await loginPage.click("#submit_approve_access");
+    await loginPage.waitForSelector("textarea");
+    let token = await loginPage.$eval("textarea", (elm) => elm.value);
+    console.log("token: " + token);
+    await page.type(".raw_input", token);
+    await page.keyboard.press("Enter");
+    await loginPage.close();
+  } catch (e) {
+    console.error(e);
+  }
   await browser.close();
-  await page.type(".raw_input", token);
-  await page.keyboard.press("Enter");
 };
 
 async function login(browser, url, account, password, userDataDir, browserOptions, loginAction, elementId = "#share") {
@@ -139,13 +146,14 @@ async function login(browser, url, account, password, userDataDir, browserOption
     } else {
       console.log("login...");
       let browser = await puppeteerExtra.launch({
-        ...browserOptions,
-        defaultViewport: {
-          width: 480,
-          height: 1200,
-          isMobile: true,
-        },
-        args: ["--disable-infobars", "--start-minimized", "--window-size=300,300"],
+        // ...browserOptions,
+        // defaultViewport: {
+        //   width: 480,
+        //   height: 1200,
+        //   isMobile: true,
+        // },
+        // args: ["--disable-infobars", "--start-minimized", "--window-size=300,300"],
+        headless: true,
       });
       let loginPage = await login(browser, url, account, password, userDataDir, browserOptions, true);
       await loginPage.close();
@@ -257,7 +265,7 @@ global.getCells = async function () {
   ).map((cell) => {
     if (cell.html) {
       let $ = cheerio.load("<div>" + cell.html + "</div>");
-      let output = $("pre").text();
+      let output = ($("pre").text() || "").trim();
       if (output && output.length) {
         cell.output = output.trim();
       }
@@ -268,11 +276,39 @@ global.getCells = async function () {
       ) {
         cell.driveUrl = $('a[rel="nofollow"]').attr("href");
       }
+      cell.lines = [];
+      $(".view-line").each((i, e) => {
+        cell.lines.push($(e).text());
+      });
     }
     delete cell.html;
     cell.running = cell.classes.includes("running");
     cell.pending = cell.classes.includes("pending");
     cell.focus = () => page.focus("shadow/#" + cell.id);
     return cell;
+  });
+};
+
+global.waitForCellFree = async function (id) {
+  await loop(async () => {
+    let classes = await page.$eval("shadow/#" + id, (elm) => elm.getAttribute("class"));
+    if (!classes.includes("pending") && !classes.includes("running")) {
+      return true;
+    }
+  });
+};
+
+global.waitRunningCell = async function (run, output) {
+  await loop(async () => {
+    let cells = await run(getCells);
+    if (!cells) return false;
+    for (let cell of cells) {
+      if (cell.running) {
+        return true;
+        // if (output && cell.output) {
+        //   return true;
+        // } else if (!output) return true;
+      }
+    }
   });
 };
