@@ -43,6 +43,7 @@ const worker = new Queue(
       console.error(e);
       cb(null);
     }
+    // noinspection JSUnusedGlobalSymbols
     return { cancel: () => (controller.canceled = true) };
   },
   { id: "id", cancelIfRunning: true }
