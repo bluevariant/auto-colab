@@ -14,7 +14,7 @@ module.exports = async function (state, run) {
 async function runDriveCell(run) {
   let code = `from google.colab import drive
 drive.mount('/content/drive')`;
-  await run(execOnce, null, run, code, async (output) => {
+  await run(execOnce, null, run, code, async () => {
     let cells = await run(getCells);
     for (let cell of cells || []) {
       if (
