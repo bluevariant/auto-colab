@@ -366,10 +366,9 @@ global.focusCell = async function (cellId) {
 };
 
 global.wathCellOutput = async function (run, cellId, cb) {
-  let check = async () => true;
   let lastOutput = undefined;
   await loop(async () => {
-    if ((await run(check)) === undefined) return true;
+    if (await sessionEnded(run)) return true;
     let ids = ["shadow/#" + cellId + " pre", "#output-area"];
     let output;
     for (let id of ids) {
@@ -437,4 +436,9 @@ global.cleanRunOnceCells = async function () {
       await deleteCellById(cell.id);
     }
   }
+};
+
+global.sessionEnded = async function (run) {
+  let check = async () => true;
+  return (await run(check)) === undefined;
 };

@@ -24,22 +24,31 @@ module.exports = async function (state, run) {
 async function runDriveCell(run) {
   let isNew = false;
   let code = "from google.colab import drive\ndrive.mount('/content/drive')";
-  await run(execOnce, null, run, code, async () => {
-    let cells = await run(getCells);
-    for (let cell of cells || []) {
-      if (
-        cell.lines &&
-        cell.lines.length > 0 &&
-        cell.lines.filter((v) => v.includes("drive.mount('/content/drive')")).length > 0 &&
-        cell.driveUrl
-      ) {
-        await run(mountDrive, null, cell.driveUrl, run);
-        await run(waitForCellFree, null, run, cell.id);
-        isNew = true;
-        break;
+  await loop(async () => {
+    if (await sessionEnded(run)) return true;
+    let isMounted = false;
+    await run(execOnce, null, run, "!test -e ./drive/MyDrive && echo connected || echo failed", (output) => {
+      isMounted = output === "connected";
+      return true;
+    });
+    if (isMounted) return true;
+    await run(execOnce, null, run, code, async () => {
+      let cells = await run(getCells);
+      for (let cell of cells || []) {
+        if (
+          cell.lines &&
+          cell.lines.length > 0 &&
+          cell.lines.filter((v) => v.includes("drive.mount('/content/drive')")).length > 0 &&
+          cell.driveUrl
+        ) {
+          await run(mountDrive, null, cell.driveUrl, run);
+          await run(waitForCellFree, null, run, cell.id);
+          isNew = true;
+          break;
+        }
       }
-    }
-    return true;
-  });
+      return true;
+    });
+  }, 1000);
   return isNew;
 }
