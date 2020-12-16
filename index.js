@@ -227,21 +227,26 @@ global.loop = async function loop(fn, ms = 33) {
 };
 
 global.runFocusedCell = async function () {
-  await page.keyboard.down("Control");
-  await sleep(100);
-  await page.keyboard.press("Enter");
-  await sleep(100);
-  await page.keyboard.up("Control");
+  // await page.keyboard.down("Control");
+  // await sleep(100);
+  // await page.keyboard.press("Enter");
+  // await sleep(100);
+  // await page.keyboard.up("Control");
+  await page.click("shadow/.cell-execution.focused");
 };
 
 global.deleteFocusedCell = async function () {
-  await page.keyboard.down("Control");
-  await sleep(100);
-  await page.keyboard.press("m");
-  await sleep(100);
-  await page.keyboard.up("Control");
-  await sleep(100);
-  await page.keyboard.press("d");
+  // await page.keyboard.down("Control");
+  // await sleep(100);
+  // await page.keyboard.press("m");
+  // await sleep(100);
+  // await page.keyboard.up("Control");
+  // await sleep(100);
+  // await page.keyboard.press("d");
+  let focusedCell = await getFocusedCell();
+  if (focusedCell) {
+    await deleteCellById(focusedCell.id);
+  }
 };
 
 global.waitFocusedCellOutput = async function () {
@@ -329,14 +334,14 @@ global.waitRunningCell = async function (run, output) {
   });
 };
 
-// global.IamStillAlive = async function () {
-//   await page.click("#toolbar-add-code");
-//   await page.keyboard.type(`!echo "i'm still alive"`);
-//   await runFocusedCell();
-//   let output = await waitFocusedCellOutput();
-//   await deleteFocusedCell();
-//   return output;
-// };
+global.IamStillAlive = async function () {
+  await page.click("#toolbar-add-code");
+  await page.keyboard.type(`!echo "i'm still alive"`);
+  await runFocusedCell();
+  let output = await waitFocusedCellOutput();
+  await deleteFocusedCell();
+  return output;
+};
 
 global.focusCell = async function (cellId) {
   await page.focus("shadow/#" + cellId);
@@ -378,4 +383,22 @@ global.wathCellOutput = async function (run, cellId, cb) {
       lastOutput = output;
     }
   });
+};
+
+global.deleteCellById = async function (cellId) {
+  let cells = await getCells();
+  for (let cell of cells) {
+    if (cell.id === cellId) {
+      await cell.focus();
+      await page.click("shadow/#" + cellId + ' paper-icon-button[icon="icons:delete"]');
+      return;
+    }
+  }
+};
+
+global.getFocusedCell = async function () {
+  let cells = await getCells();
+  for (let cell of cells) {
+    if (cell.classes.includes("focused")) return cell;
+  }
 };

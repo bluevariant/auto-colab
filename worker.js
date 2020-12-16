@@ -2,7 +2,11 @@ module.exports = async function (state, run) {
   if (state === "connect") {
     // await run(page.click, page, "shadow/#connect");
     // await run(runDriveCell, null, run);
-    // await IamStillAlive();
+    await IamStillAlive();
+    // let cells = await getCells();
+    // for (let cell of cells) {
+    //   await deleteCellById(cell.id);
+    // }
   }
 
   if (state === "connected") {
