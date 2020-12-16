@@ -343,6 +343,17 @@ global.IamStillAlive = async function () {
   return output;
 };
 
+global.execOnce = async function (run, code, cb) {
+  await run(page.click, page, "#toolbar-add-code");
+  await run(page.keyboard.type, page.keyboard, code);
+  await run(runFocusedCell);
+  let cell = await run(getFocusedCell);
+  if (cell) {
+    await run(wathCellOutput, null, run, cell.id, cb);
+    await deleteCellById(cell.id);
+  }
+};
+
 global.focusCell = async function (cellId) {
   await page.focus("shadow/#" + cellId);
   let rect = await page.$eval("shadow/#" + cellId, (element) => {
@@ -356,7 +367,6 @@ global.wathCellOutput = async function (run, cellId, cb) {
   let check = async () => true;
   let lastOutput = undefined;
   await loop(async () => {
-    console.log("watch:", cellId);
     if ((await run(check)) === undefined) return true;
     let ids = ["shadow/#" + cellId + " pre", "#output-area"];
     let output;
@@ -379,7 +389,7 @@ global.wathCellOutput = async function (run, cellId, cb) {
       if (output) break;
     }
     if (lastOutput !== output) {
-      if ((await cb(output)) === true) return true;
+      if ((await cb(output.trim())) === true) return true;
       lastOutput = output;
     }
   });
@@ -401,4 +411,8 @@ global.getFocusedCell = async function () {
   for (let cell of cells) {
     if (cell.classes.includes("focused")) return cell;
   }
+};
+
+global.runAnyways = (fn, thisArg = null, ...params) => {
+  return fn.call(thisArg, ...params);
 };
