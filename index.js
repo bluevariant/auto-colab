@@ -95,6 +95,17 @@ const worker = new Queue(
 })();
 
 global.mountDrive = async function (url, run) {
+  let tokenFile = path.join(userDataDir, "token.json");
+  // if (await fs.pathExists(tokenFile)) {
+  //   let tokenData = JSON.parse(await fs.readFile(tokenFile, "UTF-8"));
+  //   let token = tokenData.token;
+  //   if (Date.now() < tokenData.expires_in) {
+  //     console.log("reused token: " + token);
+  //     await run(page.type, page, ".raw_input", token);
+  //     await run(page.keyboard.press, page.keyboard, "Enter");
+  //     return;
+  //   }
+  // }
   let browser = await puppeteerExtra.launch({ headless: true });
   let loginPage;
   try {
@@ -113,6 +124,11 @@ global.mountDrive = async function (url, run) {
     await run(loginPage.click, loginPage, "#submit_approve_access");
     await run(loginPage.waitForSelector, loginPage, "textarea");
     let token = await run(loginPage.$eval, loginPage, "textarea", (elm) => elm.value);
+    if (token && token.length) {
+      let expiration = new Date();
+      expiration.setMinutes(expiration.getMinutes() + 59);
+      await fs.writeFile(tokenFile, JSON.stringify({ token, expires_in: expiration.getTime() }, null, 2));
+    }
     console.log("token: " + token);
     await run(page.type, page, ".raw_input", token);
     await run(page.keyboard.press, page.keyboard, "Enter");
@@ -428,11 +444,7 @@ global.waitAllCells = async function (run) {
 global.cleanRunOnceCells = async function () {
   let cells = await getCells();
   for (let cell of cells) {
-    if (
-      cell.lines &&
-      cell.lines.length > 0 &&
-      cell.lines.filter((v) => v.includes("#auto-colab:runonce')")).length > 0
-    ) {
+    if (cell.lines && cell.lines.length > 0 && cell.lines.filter((v) => v.includes("#auto-colab:runonce")).length > 0) {
       await deleteCellById(cell.id);
     }
   }
