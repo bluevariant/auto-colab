@@ -15,7 +15,7 @@ const DATA_DIR = path.join(__dirname, "data");
 const BROWSER_OPTIONS = {
   headless: false,
   ignoreDefaultArgs: true,
-  args: ["--start-maximized", "--disable-infobars"],
+  args: ["--start-maximized", "--disable-infobars", "--disable-features=site-per-process"],
   defaultViewport: null,
 };
 const USER_AGENT =
@@ -300,14 +300,15 @@ global.getCells = async function () {
     delete cell.html;
     cell.running = cell.classes.includes("running");
     cell.pending = cell.classes.includes("pending");
-    cell.focus = () => page.focus("shadow/#" + cell.id);
+    cell.focus = () => focusCell(cell.id);
     return cell;
   });
 };
 
-global.waitForCellFree = async function (id) {
+global.waitForCellFree = async function (run, id) {
   await loop(async () => {
-    let classes = await page.$eval("shadow/#" + id, (elm) => elm.getAttribute("class"));
+    let classes = await run(page.$eval, page, "shadow/#" + id, (elm) => elm.getAttribute("class"));
+    if (classes === undefined) return true;
     if (!classes.includes("pending") && !classes.includes("running")) {
       return true;
     }
@@ -320,7 +321,6 @@ global.waitRunningCell = async function (run, output) {
     if (!cells) return false;
     for (let cell of cells) {
       if (cell.running) {
-        // return true;
         if (output && cell.output) {
           return true;
         } else if (!output) return true;
@@ -329,11 +329,57 @@ global.waitRunningCell = async function (run, output) {
   });
 };
 
-global.IamStillAlive = async function () {
-  await page.click("#toolbar-add-code");
-  await page.keyboard.type(`!echo "i'm still alive"`);
-  await runFocusedCell();
-  let output = await waitFocusedCellOutput();
-  await deleteFocusedCell();
-  return output;
+// global.IamStillAlive = async function () {
+//   await page.click("#toolbar-add-code");
+//   await page.keyboard.type(`!echo "i'm still alive"`);
+//   await runFocusedCell();
+//   let output = await waitFocusedCellOutput();
+//   await deleteFocusedCell();
+//   return output;
+// };
+
+global.focusCell = async function (cellId) {
+  await page.focus("shadow/#" + cellId);
+  let rect = await page.$eval("shadow/#" + cellId, (element) => {
+    let rect = element.getBoundingClientRect();
+    return { x: (rect.x + rect.right) / 2, y: (rect.y + rect.bottom) / 2 };
+  });
+  await page.mouse.click(rect.x, rect.y);
 };
+
+global.wathCell = async function (run, cellId, cb) {
+  let check = async () => true;
+  let lastOutput = undefined;
+  await loop(async () => {
+    console.log("watch");
+    if ((await run(check)) === undefined) return true;
+    let ids = ["shadow/#" + cellId + " pre", "#output-area"];
+    let output;
+    for (let id of ids) {
+      let queryFrame = page;
+      let iframeOutput = await run(page.$eval, page, "shadow/#" + cellId, (elm) => {
+        return !!elm.querySelector("iframe");
+      });
+      if (iframeOutput) {
+        let elementHandle = await run(page.$, page, "shadow/#" + cellId + " iframe");
+        if (elementHandle) {
+          let frame = await run(elementHandle.contentFrame, elementHandle);
+          if (frame) queryFrame = frame;
+        }
+      }
+      try {
+        output = await run(queryFrame.$eval, queryFrame, id, (elm) => elm.innerHTML);
+        if (output) break;
+      } catch (e) {}
+      if (output) break;
+    }
+    console.log("out:", output);
+  });
+};
+
+function dumpFrameTree(frame, list) {
+  list.push(frame);
+  for (const child of frame.childFrames()) {
+    dumpFrameTree(child, list);
+  }
+}
