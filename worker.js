@@ -3,6 +3,8 @@ const storage = {
 };
 
 module.exports = async function (state, run) {
+  await run(cleanRunOnceCells);
+
   if (state === "connect") {
     if (!storage.clickConnect[global.uuid]) {
       await run(page.click, page, "shadow/#connect");
@@ -11,7 +13,6 @@ module.exports = async function (state, run) {
   }
 
   if (state === "connected") {
-    await cleanRunOnceCells();
     await run(waitAllCells, null, run);
     if (await run(runDriveCell, null, run)) {
       console.log("new runtime");
