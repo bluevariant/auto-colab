@@ -14,7 +14,7 @@ const { v4 } = require("uuid");
 const DATA_DIR = path.join(__dirname, "data");
 const BROWSER_OPTIONS = {
   headless: false,
-  ignoreDefaultArgs: true,
+  // ignoreDefaultArgs: true,
   args: ["--start-maximized", "--disable-infobars", "--disable-features=site-per-process"],
   defaultViewport: null,
 };
@@ -59,7 +59,7 @@ const worker = new Queue(
 
   await puppeteer.registerCustomQueryHandler("shadow", QueryHandler);
   let browser = await puppeteer.launch(browserOptions);
-  let page = await login(browser, URL, accounts[0].login, accounts[0].password, userDataDir, BROWSER_OPTIONS);
+  let page = await login(browser, URL, accounts[0].login, accounts[0].password, userDataDir, browserOptions);
   await page.waitForSelector("shadow/.cell.code");
 
   global.page = page;
@@ -345,6 +345,7 @@ global.IamStillAlive = async function () {
 };
 
 global.execOnce = async function (run, code, cb) {
+  code = "#auto-colab:runonce\n" + code;
   await run(page.click, page, "#toolbar-add-code");
   await run(page.keyboard.type, page.keyboard, code);
   await run(runFocusedCell);
@@ -422,5 +423,18 @@ global.waitAllCells = async function (run) {
   let cells = await getCells();
   for (let cell of cells) {
     await run(waitForCellFree, null, run, cell.id);
+  }
+};
+
+global.cleanRunOnceCells = async function () {
+  let cells = await getCells();
+  for (let cell of cells) {
+    if (
+      cell.lines &&
+      cell.lines.length > 0 &&
+      cell.lines.filter((v) => v.includes("#auto-colab:runonce')")).length > 0
+    ) {
+      await deleteCellById(cell.id);
+    }
   }
 };

@@ -11,6 +11,7 @@ module.exports = async function (state, run) {
   }
 
   if (state === "connected") {
+    await cleanRunOnceCells();
     await run(waitAllCells, null, run);
     if (await run(runDriveCell, null, run)) {
       console.log("new runtime");
@@ -22,8 +23,7 @@ module.exports = async function (state, run) {
 
 async function runDriveCell(run) {
   let isNew = false;
-  let code = `from google.colab import drive
-drive.mount('/content/drive')`;
+  let code = "from google.colab import drive\ndrive.mount('/content/drive')";
   await run(execOnce, null, run, code, async () => {
     let cells = await run(getCells);
     for (let cell of cells || []) {
