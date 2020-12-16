@@ -21,7 +21,7 @@ async function runDriveCell(run) {
       await run(cell.focus, cell);
       // await run(runFocusedCell);
       // await run(waitRunningCell, null, run, true);
-      await run(wathCell, null, run, cell.id);
+      await run(wathCellOutput, null, run, cell.id);
       await run(mountDrive, null, cell.driveUrl, run);
       await run(waitForCellFree, null, run, cell.id);
     }

@@ -347,7 +347,7 @@ global.focusCell = async function (cellId) {
   await page.mouse.click(rect.x, rect.y);
 };
 
-global.wathCell = async function (run, cellId, cb) {
+global.wathCellOutput = async function (run, cellId, cb) {
   let check = async () => true;
   let lastOutput = undefined;
   await loop(async () => {
