@@ -351,7 +351,7 @@ global.wathCell = async function (run, cellId, cb) {
   let check = async () => true;
   let lastOutput = undefined;
   await loop(async () => {
-    console.log("watch");
+    console.log("watch:", cellId);
     if ((await run(check)) === undefined) return true;
     let ids = ["shadow/#" + cellId + " pre", "#output-area"];
     let output;
@@ -373,13 +373,9 @@ global.wathCell = async function (run, cellId, cb) {
       } catch (e) {}
       if (output) break;
     }
-    console.log("out:", output);
+    if (lastOutput !== output) {
+      if ((await cb(output)) === true) return true;
+      lastOutput = output;
+    }
   });
 };
-
-function dumpFrameTree(frame, list) {
-  list.push(frame);
-  for (const child of frame.childFrames()) {
-    dumpFrameTree(child, list);
-  }
-}
