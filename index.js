@@ -27,7 +27,7 @@ const URL = "https://colab.research.google.com/drive/10oSUbDkLeMbH04bi2pJwMuIaxW
 
 const worker = new Queue(
   function (params, cb) {
-    console.log("state:", params.state, params.uuid);
+    console.log("state:", params.state, "session:", params.uuid);
 
     let session = params.uuid;
     let controller = {
