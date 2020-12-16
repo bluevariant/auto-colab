@@ -416,3 +416,10 @@ global.getFocusedCell = async function () {
 global.runAnyways = (fn, thisArg = null, ...params) => {
   return fn.call(thisArg, ...params);
 };
+
+global.waitAllCells = async function (run) {
+  let cells = await getCells();
+  for (let cell of cells) {
+    await run(waitForCellFree, null, run, cell.id);
+  }
+};

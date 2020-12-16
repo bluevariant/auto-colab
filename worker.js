@@ -1,17 +1,27 @@
+const storage = {
+  clickConnect: {},
+};
+
 module.exports = async function (state, run) {
   if (state === "connect") {
-    await run(execOnce, null, run, `!echo "i'm still alive"`, async (output) => {
-      console.log("output", output);
-      return true;
-    });
+    if (!storage.clickConnect[global.uuid]) {
+      await run(page.click, page, "shadow/#connect");
+      storage.clickConnect[global.uuid] = true;
+    }
   }
 
   if (state === "connected") {
-    await run(runDriveCell, null, run);
+    await run(waitAllCells, null, run);
+    if (await run(runDriveCell, null, run)) {
+      console.log("new runtime");
+    } else {
+      console.log("old runtime");
+    }
   }
 };
 
 async function runDriveCell(run) {
+  let isNew = false;
   let code = `from google.colab import drive
 drive.mount('/content/drive')`;
   await run(execOnce, null, run, code, async () => {
@@ -20,13 +30,16 @@ drive.mount('/content/drive')`;
       if (
         cell.lines &&
         cell.lines.length > 0 &&
-        cell.lines.filter((v) => v.includes("drive.mount('/content/drive')")).length > 0
+        cell.lines.filter((v) => v.includes("drive.mount('/content/drive')")).length > 0 &&
+        cell.driveUrl
       ) {
         await run(mountDrive, null, cell.driveUrl, run);
         await run(waitForCellFree, null, run, cell.id);
+        isNew = true;
         break;
       }
     }
     return true;
   });
+  return isNew;
 }
