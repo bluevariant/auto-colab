@@ -12,21 +12,21 @@ module.exports = async function (state, run) {
 };
 
 async function runDriveCell(run) {
-  let cells = await run(getCells);
-  for (let cell of cells || []) {
-    if (
-      cell.lines &&
-      cell.lines.length > 0 &&
-      cell.lines.filter((v) => v.includes("drive.mount('/content/drive')")).length > 0
-    ) {
-      await run(cell.focus, cell);
-      // await run(runFocusedCell);
-      // await run(waitRunningCell, null, run, true);
-      await run(wathCellOutput, null, run, cell.id);
-      await run(mountDrive, null, cell.driveUrl, run);
-      await run(waitForCellFree, null, run, cell.id);
+  let code = `from google.colab import drive
+drive.mount('/content/drive')`;
+  await run(execOnce, null, run, code, async (output) => {
+    let cells = await run(getCells);
+    for (let cell of cells || []) {
+      if (
+        cell.lines &&
+        cell.lines.length > 0 &&
+        cell.lines.filter((v) => v.includes("drive.mount('/content/drive')")).length > 0
+      ) {
+        await run(mountDrive, null, cell.driveUrl, run);
+        await run(waitForCellFree, null, run, cell.id);
+        break;
+      }
     }
-  }
-  // let cellData = `from google.colab import drive
-  // drive.mount('/content/drive')`;
+    return true;
+  });
 }
