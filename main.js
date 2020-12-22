@@ -32,7 +32,7 @@ async function main(initial = 4) {
   let action = await prompts({
     type: "select",
     name: "value",
-    message: "Actions",
+    message: "Actions?",
     choices: [
       { title: "New account", value: "new-account" },
       { title: "Delete account", value: "del-account", disabled: data.accounts.length === 0 },
@@ -278,7 +278,7 @@ async function start(user, password, url, headless = false) {
       await page.keyboard.press("F10");
       await page.keyboard.up("Control");
     } else {
-      await exec("#autocolab:section", async () => true);
+      await exec(cRID, "#autocolab:section", async () => true, false);
     }
   }
 
@@ -330,15 +330,15 @@ async function start(user, password, url, headless = false) {
     }
   }
 
-  async function exec(cRID, code, cb) {
-    code = "#auto-colab:runonce\n" + code;
+  async function exec(cRID, code, cb, deleteCell = true) {
+    if (deleteCell) code = "#auto-colab:runonce\n" + code;
     await page.click("#toolbar-add-code");
     await page.keyboard.type(code);
     await runFocusedCell();
     let cell = await getFocusedCell();
     if (cell) {
       await wathCellOutput(cRID, cell.id, cb);
-      await deleteCellById(cell.id);
+      if (deleteCell) await deleteCellById(cell.id);
     }
   }
 
@@ -462,7 +462,9 @@ async function start(user, password, url, headless = false) {
   }
 
   async function initPage(page) {
-    page.setDefaultNavigationTimeout(120000);
+    let defaultTimeout = 1000 * 60 * 60 * 24 * 7;
+    page.setDefaultNavigationTimeout(defaultTimeout);
+    page.setDefaultTimeout(defaultTimeout);
     await page.setUserAgent(
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15"
     );
