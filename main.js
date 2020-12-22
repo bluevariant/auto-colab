@@ -11,11 +11,149 @@ const slug = require("slug");
 const fs = require("fs-extra");
 const cheerio = require("cheerio");
 const _ = require("lodash");
+const prompts = require("prompts");
 
-function main() {}
-main();
+async function main(initial = 4) {
+  let dataDir = path.join(__dirname, "data");
+  await fs.ensureDir(dataDir);
+  let dataFile = path.join(dataDir, "data.json");
+  let data = {
+    accounts: [],
+    books: [],
+  };
+  if (await fs.pathExists(dataFile)) {
+    data = JSON.parse(await fs.readFile(dataFile, "UTF-8"));
+  }
+  const updateData = async () => {
+    await fs.writeFile(dataFile, JSON.stringify(data, null, 2));
+  };
+  let action = await prompts({
+    type: "select",
+    name: "value",
+    message: "Actions",
+    choices: [
+      { title: "New account", value: "new-account" },
+      { title: "Delete account", value: "del-account", disabled: data.accounts.length === 0 },
+      { title: "New notebook", value: "new-notebook" },
+      { title: "Delete notebook", value: "del-notebook", disabled: data.books.length === 0 },
+      { title: "Run", value: "run", disabled: data.accounts.length === 0 || data.books.length === 0 },
+    ],
+    initial,
+  });
+  if (action.value === "new-account") {
+    action = await prompts([
+      {
+        type: "text",
+        name: "email",
+        message: "Email?",
+      },
+      {
+        type: "password",
+        name: "password",
+        message: "Password?",
+      },
+    ]);
+    if (action.email && action.password) {
+      data.accounts.push(action);
+      await updateData();
+    }
+    await main(0);
+  }
+  if (action.value === "del-account") {
+    action = await prompts({
+      type: "select",
+      name: "email",
+      message: "Delete accounts?",
+      choices: data.accounts.map((v) => ({
+        title: v.email,
+        value: v.email,
+      })),
+      initial: 0,
+    });
+    if (action.email) {
+      let index = _.findIndex(data.accounts, (v) => v.email === action.email);
+      data.accounts.splice(index, 1);
+      await updateData();
+    }
+    await main(1);
+  }
+  if (action.value === "new-notebook") {
+    action = await prompts([
+      {
+        type: "text",
+        name: "name",
+        message: "Name?",
+      },
+      {
+        type: "text",
+        name: "url",
+        message: "Url?",
+      },
+    ]);
+    if (action.name && action.url) {
+      data.books.push(action);
+      await updateData();
+    }
+    await main(2);
+  }
+  if (action.value === "del-notebook") {
+    action = await prompts({
+      type: "select",
+      name: "url",
+      message: "Delete notebooks?",
+      choices: data.books.map((v) => ({
+        title: v.name + " " + v.url,
+        value: v.url,
+      })),
+      initial: 0,
+    });
+    if (action.url) {
+      let index = _.findIndex(data.books, (v) => v.url === action.url);
+      data.books.splice(index, 1);
+      await updateData();
+    }
+    await main(3);
+  }
+  if (action.value === "run") {
+    action = await prompts([
+      {
+        type: "select",
+        name: "account",
+        message: "Account?",
+        choices: data.accounts.map((v) => ({
+          title: v.email,
+          value: v,
+        })),
+        initial: 0,
+      },
+      {
+        type: "select",
+        name: "notebook",
+        message: "Notebook?",
+        choices: data.books.map((v) => ({
+          title: v.name + " " + v.url,
+          value: v.url,
+        })),
+        initial: 0,
+      },
+      {
+        type: "select",
+        name: "headless",
+        message: "Headless?",
+        choices: [
+          { title: "True", value: true },
+          { title: "False", value: false },
+        ],
+        initial: 1,
+      },
+    ]);
+    await start(action.account.email, action.account.password, action.notebook, action.headless);
+  }
+}
 
-async function start(user, password, url) {
+main().catch(console.error);
+
+async function start(user, password, url, headless = false) {
   await originPuppeteer.registerCustomQueryHandler("shadow", QueryHandler);
   const puppeteer = addExtra(originPuppeteer);
   puppeteer.use(StealthPlugin());
@@ -28,7 +166,7 @@ async function start(user, password, url) {
   config.dataDir = path.join(__dirname, "data", slug(config.login));
   await fs.ensureDir(config.dataDir);
   config.defaultBrowserConfig = {
-    headless: false,
+    headless,
     args: [
       "--start-maximized",
       "--disable-features=site-per-process",
@@ -137,6 +275,8 @@ async function start(user, password, url) {
       await page.keyboard.down("Control");
       await page.keyboard.press("F10");
       await page.keyboard.up("Control");
+    } else {
+      await exec("#autocolab:section", async () => true);
     }
   }
 
