@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 console.error = function (e) {
   if (e && e.message) console.log(e.message);
 };
