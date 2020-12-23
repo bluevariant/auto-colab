@@ -14,6 +14,7 @@ const fs = require("fs-extra");
 const cheerio = require("cheerio");
 const _ = require("lodash");
 const prompts = require("prompts");
+const moment = require("moment");
 
 async function main(initial = 4) {
   let dataDir = path.join(__dirname, "data");
@@ -185,6 +186,8 @@ async function start(user, password, url, headless = false) {
   config.driveToken = null;
   config.maxPages = 1;
   //////
+  console.log(path.join(config.dataDir, slug(url)) + ".output.html");
+  //////
   const browser = await puppeteer.launch(config.defaultBrowserConfig);
   browser.on("targetcreated", async (target) => {
     const page = await target.page();
@@ -239,7 +242,8 @@ async function start(user, password, url, headless = false) {
         // } else {
         //   processOld(rID + "").catch(console.error);
         // }
-        driveConnector(rID).then((isNew) => {
+        parseOutputs(rID + "").catch(console.error);
+        driveConnector(rID + "").then((isNew) => {
           if (isNew) processNew(rID + "").catch(console.error);
           else processOld(rID + "").catch(console.error);
         });
@@ -253,6 +257,29 @@ async function start(user, password, url, headless = false) {
   });
 
   //////
+  async function parseOutputs(cRID) {
+    await loop(async () => {
+      if (cRID !== rID) return true;
+      let outputs = [];
+      let cells = await getCells();
+      for (let cell of cells) {
+        outputs.push('<div class="autocolab-section">');
+        outputs.push('<pre class="autocolab-code">' + cell.lines.join("\r\n") + "</pre>");
+        await wathCellOutput(cRID, cell.id, async (output) => {
+          outputs.push('<pre class="autocolab-output">' + output + "</pre>");
+          return true;
+        });
+        outputs.push("</div>");
+      }
+      let template = await fs.readFile(path.join(__dirname, "output-template.html"), "UTF-8");
+      template = template.replace("#[[$TITLE$]]#", url);
+      outputs.unshift(`<div>URL: <a href="${url}">${url}</a></div>`);
+      outputs.unshift(`<div>Update at: ${moment().format("DD/MM/YYYY HH:mm:ss")}</div>`);
+      template = template.replace("#[[$BODY$]]#", outputs.join("\r\n"));
+      await fs.writeFile(path.join(config.dataDir, slug(url)) + ".output.html", template);
+    }, 5000);
+  }
+
   async function processNew(cRID) {
     await cleanRunOnceCells();
     console.log("connected new:", cRID);
@@ -343,7 +370,7 @@ async function start(user, password, url, headless = false) {
   }
 
   async function wathCellOutput(cRID, cellId, cb) {
-    let lastOutput = undefined;
+    let lastOutput = Number.MIN_VALUE;
     await loop(async () => {
       if (cRID !== rID) return true;
       let ids = ["shadow/#" + cellId + " pre", "#output-area"];
@@ -367,7 +394,7 @@ async function start(user, password, url, headless = false) {
         if (output) break;
       }
       if (lastOutput !== output) {
-        if ((await cb(output.trim())) === true) return true;
+        if ((await cb((output || "").trim())) === true) return true;
         lastOutput = output;
       }
     });
@@ -452,6 +479,7 @@ async function start(user, password, url, headless = false) {
         $(".view-line").each((i, e) => {
           cell.lines.push($(e).text());
         });
+        cell.lines = cell.lines.map((v) => v.replace(/ /g, ""));
       }
       delete cell.html;
       cell.running = cell.classes.includes("running");
