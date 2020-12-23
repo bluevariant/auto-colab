@@ -300,7 +300,7 @@ async function start(user, password, url, headless = false) {
     let sectionCell;
     let cells = await getCells();
     for (let cell of cells) {
-      if (cell.lines[0].includes("#autocolab:section")) {
+      if (cell.lines[0].includes("autocolab:section")) {
         sectionCell = cell;
         break;
       }
@@ -311,7 +311,7 @@ async function start(user, password, url, headless = false) {
       await page.keyboard.press("F10");
       await page.keyboard.up("Control");
     } else {
-      await exec(cRID, "#autocolab:section", async () => true, false);
+      await exec(cRID, "# autocolab:section", async () => true, false);
     }
   }
 
