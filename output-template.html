@@ -3,8 +3,37 @@
   <head>
     <meta charset="UTF-8" />
     <title>#[[$TITLE$]]#</title>
+    <style>
+      body {
+        font-size: 14px;
+        font-family: monospace;
+      }
+
+      .autocolab-output,
+      .autocolab-code {
+        border: 1px solid #e0e0e0;
+        padding: 8px;
+        border-radius: 4px;
+      }
+
+      .autocolab-code {
+        border-left: 5px solid cadetblue;
+      }
+
+      .autocolab-code.pending {
+        border-left: 5px solid coral;
+      }
+
+      .autocolab-code.running {
+        border-left: 5px solid #0074e8;
+      }
+
+      .autocolab-code.focused {
+        background: #f0f0f0;
+      }
+    </style>
   </head>
   <body>
-    #[[$BODY$]]#
+    <div style="margin: auto; max-width: 900px">#[[$BODY$]]#</div>
   </body>
 </html>

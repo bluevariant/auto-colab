@@ -264,9 +264,9 @@ async function start(user, password, url, headless = false) {
       let cells = await getCells();
       for (let cell of cells) {
         outputs.push('<div class="autocolab-section">');
-        outputs.push('<pre class="autocolab-code">' + cell.lines.join("\r\n") + "</pre>");
+        outputs.push('<pre class="autocolab-code ' + cell.classes + '">' + cell.lines.join("\r\n") + "</pre>");
         await wathCellOutput(cRID, cell.id, async (output) => {
-          outputs.push('<pre class="autocolab-output">' + output + "</pre>");
+          if (output) outputs.push('<pre class="autocolab-output">' + output + "</pre>");
           return true;
         });
         outputs.push("</div>");
