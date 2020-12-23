@@ -273,8 +273,8 @@ async function start(user, password, url, headless = false) {
       }
       let template = await fs.readFile(path.join(__dirname, "output-template.html"), "UTF-8");
       template = template.replace("#[[$TITLE$]]#", url);
-      outputs.unshift(`<div>URL: <a href="${url}">${url}</a></div>`);
-      outputs.unshift(`<div>Update at: ${moment().format("DD/MM/YYYY HH:mm:ss")}</div>`);
+      outputs.unshift(`<div>URL: <a href="${url}" target="_blank">${url}</a></div>`);
+      outputs.unshift(`<div>Last updated at: ${moment().format("DD/MM/YYYY HH:mm:ss")}</div>`);
       template = template.replace("#[[$BODY$]]#", outputs.join("\r\n"));
       await fs.writeFile(path.join(config.dataDir, slug(url)) + ".output.html", template);
     }, 5000);
