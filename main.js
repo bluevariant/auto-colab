@@ -479,7 +479,7 @@ async function start(user, password, url, headless = false) {
         $(".view-line").each((i, e) => {
           cell.lines.push($(e).text());
         });
-        cell.lines = cell.lines.map((v) => v.replace(/ /g, ""));
+        cell.lines = cell.lines.map((v) => v.replace(/ /g, " "));
       }
       delete cell.html;
       cell.running = cell.classes.includes("running");
