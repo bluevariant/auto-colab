@@ -185,6 +185,7 @@ async function start(user, password, url, headless = false) {
   };
   config.driveToken = null;
   config.maxPages = 1;
+  config.connected = false;
   //////
   console.log(path.join(config.dataDir, slug(url)) + ".output.html");
   //////
@@ -283,6 +284,23 @@ async function start(user, password, url, headless = false) {
       outputs.unshift(`<div>Last updated at: ${moment().format("DD/MM/YYYY HH:mm:ss")}</div>`);
       template = template.replace("#[[$BODY$]]#", outputs.join("\r\n"));
       await fs.writeFile(path.join(config.dataDir, slug(url)) + ".output.html", template);
+      ///
+      if (config.connected) {
+        try {
+          // Click refresh drive.
+          await page.$eval('shadow/paper-item[page="files"]', (element) => {
+            console.log(element.getAttribute("aria-selected"));
+            if (element && element.getAttribute("aria-selected") + "" === "false") {
+              element.click();
+            }
+          });
+          await page.$eval('shadow/paper-icon-button[icon="colab:folder-refresh"]', (element) => {
+            if (!element) return;
+            element.click();
+            console.log("click");
+          });
+        } catch (ignoredError) {}
+      }
     }, 5000);
   }
 
@@ -318,7 +336,9 @@ async function start(user, password, url, headless = false) {
   async function driveConnector(cRID) {
     let isNew = false;
     config.driveToken = null;
+    config.connected = false;
     await exec(cRID, "from google.colab import drive\ndrive.mount('/content/drive')", async (output) => {
+      if (output.length === 0) return false;
       if (output.includes('<input class="raw_input">')) {
         let $ = cheerio.load("<div>" + output + "</div>");
         let href = $("a").attr("href");
@@ -345,6 +365,7 @@ async function start(user, password, url, headless = false) {
         isNew = true;
       }
       ///
+      config.connected = true;
       return true;
     });
     return isNew;
