@@ -187,7 +187,9 @@ async function start(user, password, url, headless = false) {
   config.maxPages = 1;
   config.connected = false;
   //////
+  console.log("---");
   console.log(path.join(config.dataDir, slug(url)) + ".output.html");
+  console.log("---");
   //////
   const browser = await puppeteer.launch(config.defaultBrowserConfig);
   browser.on("targetcreated", async (target) => {
