@@ -282,6 +282,7 @@ async function start(user, password, url, headless = false) {
       }
       let template = await fs.readFile(path.join(__dirname, "output-template.html"), "UTF-8");
       template = template.replace("#[[$TITLE$]]#", url);
+      template = template.replace("#[[$IMG$]]#", await page.screenshot({ encoding: "base64" }));
       outputs.unshift(`<div>URL: <a href="${url}" target="_blank">${url}</a></div>`);
       outputs.unshift(`<div>Last updated at: ${moment().format("DD/MM/YYYY HH:mm:ss")}</div>`);
       template = template.replace("#[[$BODY$]]#", outputs.join("\r\n"));
@@ -303,7 +304,7 @@ async function start(user, password, url, headless = false) {
           });
         } catch (ignoredError) {}
       }
-    }, 5000);
+    }, 10000);
   }
 
   async function processNew(cRID) {
@@ -376,11 +377,7 @@ async function start(user, password, url, headless = false) {
   async function cleanRunOnceCells() {
     let cells = await getCells();
     for (let cell of cells) {
-      if (
-        cell.lines &&
-        cell.lines.length > 0 &&
-        cell.lines.filter((v) => v.includes("autocolab:runonce")).length > 0
-      ) {
+      if (cell.lines && cell.lines.length > 0 && cell.lines.filter((v) => v.includes("autocolab:runonce")).length > 0) {
         await deleteCellById(cell.id);
       }
     }
