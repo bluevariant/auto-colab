@@ -379,7 +379,7 @@ async function start(user, password, url, headless = false) {
       if (
         cell.lines &&
         cell.lines.length > 0 &&
-        cell.lines.filter((v) => v.includes("#auto-colab:runonce")).length > 0
+        cell.lines.filter((v) => v.includes("autocolab:runonce")).length > 0
       ) {
         await deleteCellById(cell.id);
       }
@@ -387,7 +387,7 @@ async function start(user, password, url, headless = false) {
   }
 
   async function exec(cRID, code, cb, deleteCell = true) {
-    if (deleteCell) code = "#auto-colab:runonce\n" + code;
+    if (deleteCell) code = "# autocolab:runonce\n" + code;
     await page.click("#toolbar-add-code");
     await page.keyboard.type(code);
     await runFocusedCell();
