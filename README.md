@@ -1,5 +1,16 @@
 ```
 npm i -g git+https://github.com/bluevariant/auto-colab.git
+
+#or (Yarn) 
+
+yarn global add git+https://github.com/bluevariant/auto-colab.git
+
+#or volta (Yarn)
+
+#linux/unix
+VOLTA_UNSAFE_GLOBAL=1 yarn global add git+https://github.com/bluevariant/auto-colab.git
+#windows
+set VOLTA_UNSAFE_GLOBAL=1 && yarn global add git+https://github.com/bluevariant/auto-colab.git
 ```
 ```
 autocolab
