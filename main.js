@@ -427,14 +427,8 @@ async function start(user, password, url, headless = false) {
   }
 
   async function deleteCellById(cellId) {
-    let cells = await getCells();
-    for (let cell of cells) {
-      if (cell.id === cellId) {
-        await cell.focus();
-        await page.click("shadow/#" + cellId + ' paper-icon-button[icon="icons:delete"]');
-        return;
-      }
-    }
+    await focusCell(cellId);
+    await page.click("shadow/#" + cellId + ' paper-icon-button[icon="icons:delete"]');
   }
 
   async function focusCell(cellId) {
