@@ -16,8 +16,11 @@ const _ = require("lodash");
 const prompts = require("prompts");
 const moment = require("moment");
 
+const homedir = path.join(require("os").homedir(), ".autocolab");
+fs.ensureDirSync(homedir);
+
 async function main(initial = 4) {
-  let dataDir = path.join(__dirname, "data");
+  let dataDir = path.join(homedir, "data");
   await fs.ensureDir(dataDir);
   let dataFile = path.join(dataDir, "data.json");
   let data = {
@@ -75,6 +78,7 @@ async function main(initial = 4) {
     });
     if (action.email) {
       let index = _.findIndex(data.accounts, (v) => v.email === action.email);
+      await fs.remove(path.join(homedir, "data", slug(data.accounts[index].email)));
       data.accounts.splice(index, 1);
       await updateData();
     }
@@ -166,7 +170,7 @@ async function start(user, password, url, headless = false) {
   config.url = url;
   config.login = user;
   config.password = password;
-  config.dataDir = path.join(__dirname, "data", slug(config.login));
+  config.dataDir = path.join(homedir, "data", slug(config.login));
   await fs.ensureDir(config.dataDir);
   config.defaultBrowserConfig = {
     headless,
